@@ -1,6 +1,7 @@
 package main
 
 func main() {
-	async()
-	dirwatcher()
+	//async()
+	//dirwatcher()
+	gradient()
 }
