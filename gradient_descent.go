@@ -2,8 +2,13 @@ package main
 
 import (
 	"errors"
+	"image/color"
 	"log"
 	"math"
+
+	"gonum.org/v1/plot"
+	"gonum.org/v1/plot/plotter"
+	"gonum.org/v1/plot/vg"
 )
 
 func computeCost(x []float64, y []float64, w float64, b float64) (error, float64) {
@@ -38,18 +43,18 @@ func computeGradient(x []float64, y []float64, w float64, b float64) (error, flo
 	}
 
 	m := len(x)
-	var f_wb float64
 
 	// Dot(x,w) + b
-	for i := 0; i < m; i++ {
-		f_wb = x[i] * w
-	}
-	f_wb += b
 
 	var dj_db, dj_dw float64
 	for i := 0; i < m; i++ {
-		dj_db += f_wb - y[i]
-		dj_dw += f_wb - x[i]
+		// Calculate prediction for a single element
+		f_wb := x[i]*w + b
+		// Calculate the error for this element
+		err_i := f_wb - y[i]
+		// Update gradients
+		dj_dw += err_i * x[i]
+		dj_db += err_i
 	}
 	dj_db /= float64(m)
 	dj_dw /= float64(m)
@@ -86,7 +91,10 @@ func gradientDescent(x []float64, y []float64, w_in float64, b_in float64, alpha
 
 	for i := 0; i < num_iters; i++ {
 		// Calculate the gradient and update the parameters using gradient_function
-		_, dj_dw, dj_db := gradient_function(x, y, w, b)
+		err, dj_dw, dj_db := gradient_function(x, y, w, b)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		// Update Parameters using equation (3) above
 		b -= alpha * dj_db
@@ -110,19 +118,19 @@ func gradientDescent(x []float64, y []float64, w_in float64, b_in float64, alpha
 }
 
 // https://stackoverflow.com/questions/19906544/how-do-i-do-something-like-numpys-arange-in-go
-func Arange(start, stop, step float64) []float64 {
+func Arange[T int | float64](start, stop, step T) []T {
 	if step == 0 {
 		return nil
 	}
 
-	size := int(math.Ceil((stop - start) / step))
+	var size int = int(math.Ceil(float64((stop - start) / step)))
 	if size <= 0 {
-		return []float64{}
+		return []T{}
 	}
 
-	res := make([]float64, size)
+	res := make([]T, size)
 	for i := 0; i < size; i++ {
-		res[i] = start + float64(i)*step
+		res[i] = start + T(i)*step
 	}
 	return res
 }
@@ -130,14 +138,57 @@ func Arange(start, stop, step float64) []float64 {
 func gradient() {
 	y := []float64{5.1, 4.95, 4.86, 4.73, 4.71, 4.70, 4.62, 4.39, 4.20, 3.97, 4.13, 4.21, 4.39, 4.39, 4.19, 3.83, 3.79,
 		3.99, 3.89, 3.05, 3.89, 3.77, 3.99, 3.61, 3.87, 4.11, 4.05, 3.98, 3.88, 3.95, 4.21}
-	X := Arange(0.0, float64(len(y)), 0.1)
+	X := Arange(0.0, float64(len(y)), 1.0)
 
 	w_init := 0.0
 	b_init := 0.0
 	iterations := 10000
 	tmp_alpha := 0.001
 
+	log.Printf("Running gradient descent with alpha = %f, iterations = %d...", tmp_alpha, iterations)
+	log.Printf("Observed data, y: %v", y)
+	log.Printf("Initial data, X: %v", X)
+
 	w_final, b_final, _, _ := gradientDescent(X, y, w_init, b_init, tmp_alpha, iterations, computeCost, computeGradient)
 	log.Printf("(w,b) found by gradient descent: (%8.4f,%8.4f)", w_final, b_final)
 
+	p := plot.New()
+	p.Title.Text = "Gradient Descent"
+	p.X.Label.Text = "X"
+	p.Y.Label.Text = "Y"
+
+	// Create a scatter plot of the original data
+	pts := make(plotter.XYs, len(X))
+	for i := 0; i < len(X); i++ {
+		pts[i].X = X[i]
+		pts[i].Y = y[i]
+	}
+	s, err := plotter.NewScatter(pts)
+	if err != nil {
+		log.Fatal(err)
+	}
+	s.Color = color.RGBA{R: 255, A: 255}
+	p.Add(s)
+	p.Legend.Add("Original Data", s)
+
+	// Create a line plot for the regression line
+	linePts := make(plotter.XYs, len(X))
+	for i := 0; i < len(X); i++ {
+		linePts[i].X = X[i]
+		linePts[i].Y = w_final*X[i] + b_final
+	}
+
+	l, err := plotter.NewLine(linePts)
+	if err != nil {
+		log.Fatal(err)
+	}
+	l.Color = color.RGBA{B: 255, A: 255}
+	p.Add(l)
+	p.Legend.Add("Regression Line", l)
+
+	// Save the plot to a PNG file.
+	if err := p.Save(4*vg.Inch, 4*vg.Inch, "gradient_descent.png"); err != nil {
+		log.Fatal(err)
+	}
+	log.Println("Plot saved to gradient_descent.png")
 }
