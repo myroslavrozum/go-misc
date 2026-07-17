@@ -96,10 +96,14 @@ func main() {
 	}
 
 	losses := Must(Sub(y, m.pred))
-	cost := Must(Mean(losses))
+	square := Must(Square(losses))
+	cost := Must(Mean(square))
 
-	var costVal *Value
-	Read(cost, costVal)
+	var costVal Value
+	Read(cost, &costVal)
+
+	var predVal Value
+	Read(m.pred, &predVal)
 
 	//https://dreampuf.github.io/GraphvizOnline/
 	os.WriteFile("pregrad.dot", []byte(g.ToDot()), 0644)
@@ -110,7 +114,7 @@ func main() {
 
 	// Instantiate VM and Solver
 	vm := NewTapeMachine(g, BindDualValues(m.learnables()...))
-	solver := NewVanillaSolver(WithLearnRate(0.001), WithClip(5))
+	solver := NewVanillaSolver(WithLearnRate(2.0), WithClip(5))
 	// solver := NewRMSPropSolver()
 
 	for i := range 10000 {
@@ -122,7 +126,8 @@ func main() {
 		log.Println("Cost: \n", cost.Value())
 		log.Println("Weights: \n", m.w0.Value())
 		// vm.Set(m.w0, wUpd)
-		// vm.Reset()
+		vm.Reset()
 	}
-	log.Println("Output adter Training: \n", m.pred.Value())
+	vm.RunAll()
+	log.Println("Output adter Training: \n", predVal)
 }
