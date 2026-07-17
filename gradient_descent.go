@@ -36,6 +36,7 @@ func computeGradient(x []float64, y []float64, w float64, b float64) (error, flo
 	// Returns
 	//   dj_dw (scalar): The gradient of the cost w.r.t. the parameters w
 	//   dj_db (scalar): The gradient of the cost w.r.t. the parameter b
+	
 
 	// Number of training examples
 	if len(x) != len(y) {
